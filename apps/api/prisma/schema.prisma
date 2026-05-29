@@ -12,11 +12,42 @@ datasource db {
   provider = "postgresql"
 }
 
-model User{
-  id    String   @id   @default(uuid())
-  name   String 
-  username    String    @unique
-  email       String    @unique
-  rating       Int       @default(100)
-  
+model User {
+  id String @id @default(cuid())
+
+  username    String @unique
+  displayName String
+
+  avatarUrl String?
+
+  email String @unique
+
+  countryCode String?
+
+  bio String?
+
+  status Status @default(ACTIVE)
+
+  role Role @default(USER)
+
+  isVerified Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  deletedAt DateTime?
+}
+
+enum Status {
+  ACTIVE
+  SUSPENDED
+  BANNED
+  DELETED
+}
+
+enum Role {
+  USER
+  MODERATOR
+  ADMIN
 }
