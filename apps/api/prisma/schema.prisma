@@ -35,6 +35,7 @@ model User {
   sessions            Session[]
   verificationTokens  VerificationToken[]
   passwordResetTokens PasswordResetToken[]
+  player              Player?
 
   createdAt DateTime @default(now())
 
@@ -118,6 +119,186 @@ model PasswordResetToken {
   expiresAt DateTime
   createdAt DateTime  @default(now())
   usedAt    DateTime?
+}
+
+model Player {
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  title         PlayerTitle @default(NONE)
+  fairPlayScore Int         @default(100)
+
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  ratings            Rating[]
+  playerAchievements PlayerAchievement[]
+  whiteGames         Game[]              @relation("GameWhite")
+  blackGames         Game[]              @relation("GameBlack")
+  wonGames           Game[]              @relation("GameWinner")
+
+  @@index([userId])
+}
+
+model Achievement {
+  id                 String              @id @default(uuid())
+  code               String              @unique
+  name               String
+  description        String?
+  type               AchievementType     @default(GAMEPLAY)
+  iconUrl            String?
+  createdAt          DateTime            @default(now())
+  playerAchievements PlayerAchievement[]
+}
+
+enum AchievementType {
+  GAMEPLAY
+  RATING
+  PUZZLE
+  TOURNAMENT
+  SOCIAL
+}
+
+model PlayerAchievement {
+  id String @id @default(uuid())
+
+  playerId      String
+  achievementId String
+
+  unlockedAt DateTime?
+  progress   Int       @default(0)
+
+  player      Player      @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  achievement Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([playerId, achievementId])
+  @@index([playerId])
+  @@index([achievementId])
+}
+
+enum PlayerTitle {
+  NONE
+  GM
+  IM
+  FM
+  CM
+  NM
+}
+
+model Rating {
+  id       String @id @default(uuid())
+  playerId String
+  player   Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  type RatingType
+
+  currentRating   Int    @default(1200)
+  peakRating      Int    @default(1200)
+  ratingDeviation Float?
+  volatility      Float?
+
+  gamesPlayed Int @default(0)
+  wins        Int @default(0)
+  losses      Int @default(0)
+  draws       Int @default(0)
+
+  lastPlayedAt DateTime?
+
+  history RatingHistory[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([playerId, type])
+  @@index([playerId])
+}
+
+enum RatingType {
+  BULLET
+  BLITZ
+  RAPID
+  CLASSICAL
+  PUZZLE
+}
+
+model RatingHistory {
+  id String @id @default(uuid())
+
+  ratingId String
+  rating   Rating @relation(fields: [ratingId], references: [id], onDelete: Cascade)
+
+  sourceType RatingHistorySourceType
+  sourceId   String?
+
+  oldRating Int
+  newRating Int
+
+  ratingChange Int
+
+  createdAt DateTime @default(now())
+
+  @@index([ratingId])
+  @@index([createdAt])
+}
+
+enum RatingHistorySourceType {
+  GAME
+  PUZZLE
+  TOURNAMENT
+  ADMIN_ADJUSTMENT
+}
+
+model Game {
+  id String @id @default(uuid())
+
+  whitePlayerId String
+  blackPlayerId String
+
+  whitePlayer Player @relation("GameWhite", fields: [whitePlayerId], references: [id], onDelete: Cascade)
+  blackPlayer Player @relation("GameBlack", fields: [blackPlayerId], references: [id], onDelete: Cascade)
+
+  winnerPlayerId String?
+  winner         Player? @relation("GameWinner", fields: [winnerPlayerId], references: [id], onDelete: SetNull)
+
+  result GameResult?
+  status GameStatus  @default(WAITING)
+
+  timeControl String?
+  opening     String?
+
+  initialFen String?
+  finalFen   String?
+
+  movesCount Int @default(0)
+
+  startedAt DateTime?
+  endedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([whitePlayerId])
+  @@index([blackPlayerId])
+  @@index([winnerPlayerId])
+  @@index([status])
+  @@index([result])
+  @@index([startedAt])
+}
+
+enum GameResult {
+  WHITE_WIN
+  BLACK_WIN
+  DRAW
+  ABANDONED
+}
+
+enum GameStatus {
+  WAITING
+  ACTIVE
+  FINISHED
+  ABORTED
 }
 
 enum SessionRevocationReason {
