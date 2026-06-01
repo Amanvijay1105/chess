@@ -16,7 +16,7 @@ import { createHashPassword } from '../../utils/password.util.js';
 import crypto from 'crypto';
 
 @Injectable()
-export class AuthService {
+export class UserService {
   constructor(
     private readonly userRepository: userRepository,
     private readonly authRepository: AuthRepository,
