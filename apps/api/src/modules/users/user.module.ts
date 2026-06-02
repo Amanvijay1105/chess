@@ -9,7 +9,6 @@ import { verificationTokenRespository } from './repositories/verification.reposi
 
 import { PlayerRespository } from '../players/respositories/players.respository.ts/player.repository.js';
 
-import { PrismaService } from '../../database/prisma/prisma.service.js';
 
 @Module({
   controllers: [UserController],

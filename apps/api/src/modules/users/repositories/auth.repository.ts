@@ -8,7 +8,7 @@ export class AuthRepository{
     async findLocalAccount(userId:string):Promise<any | null>{
         return await this.prisma.account.findFirst({
             where:{
-                id : userId,
+                userId : userId,
                 provider : 'LOCAL'
             }
         })
