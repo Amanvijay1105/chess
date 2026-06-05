@@ -9,7 +9,6 @@ import { REQUEST } from '@nestjs/core';
 import { type Request } from 'express';
 
 import { LoginDto } from './dto/login.dto.js';
-
 import { userRepository } from '../users/repositories/user.repository.js';
 import { AuthRepository } from '../users/repositories/auth.repository.js';
 import { SessionRepository } from './repositories/session.repository.js';
@@ -27,7 +26,8 @@ export class AuthService {
 
     private readonly sessionRepository: SessionRepository,
     private readonly userRepository: userRepository,
-    private readonly authRepository: AuthRepository
+    private readonly authRepository: AuthRepository,
+    private readonly JwtService:JwtService
   ) {}
 
   async login(dto: LoginDto) {
@@ -62,7 +62,11 @@ export class AuthService {
     }
     console.log(isMatch);
     
-    const accessToken = generateTokenString()
+    const accessToken = await this.JwtService.signAsync({
+        sub: user.id,
+      email: user.email,
+      role: user.role,
+    })
 
     const refreshToken = generateTokenString();
     const refreshTokenHash = hashToken(refreshToken).toString();
