@@ -9,9 +9,16 @@ import { REQUEST } from '@nestjs/core';
 import { type Request } from 'express';
 
 import { LoginDto } from './dto/login.dto.js';
+import { RefreshDto } from './dto/refresh.dto.js';
+import { LogoutDto } from './dto/logout.dto.js';
+import { VerifyEmailDto } from './dto/verify-email.dto.js';
+import { ForgotPasswordDto } from './dto/forgot-password.dto.js';
+import { ResetPasswordDto } from './dto/reset-password.dto.js';
 import { userRepository } from '../users/repositories/user.repository.js';
 import { AuthRepository } from '../users/repositories/auth.repository.js';
 import { SessionRepository } from './repositories/session.repository.js';
+import { VerificationRepository } from './repositories/verification.repository.js';
+import { PasswordResetRepository } from './repositories/password-reset.repository.js';
 
 import { comparePassword } from '../../utils/password.util.js';
 import { generateTokenString, hashToken } from '../../utils/refreshToken.js';
@@ -27,7 +34,9 @@ export class AuthService {
     private readonly sessionRepository: SessionRepository,
     private readonly userRepository: userRepository,
     private readonly authRepository: AuthRepository,
-    private readonly JwtService:JwtService
+    private readonly verificationRepository: VerificationRepository,
+    private readonly passwordResetRepository: PasswordResetRepository,
+    private readonly JwtService: JwtService,
   ) {}
 
   async login(dto: LoginDto) {
@@ -36,7 +45,6 @@ export class AuthService {
 
     const { email, password } = dto;
     const user = await this.userRepository.findbyEmail(email);
-    console.log(user)
 
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
@@ -46,12 +54,12 @@ export class AuthService {
         `User account is ${user.status.toLowerCase()}`,
       );
     }
+
     const account = await this.authRepository.findLocalAccount(user.id);
-    console.log(account);
-    
     if (!account) {
       throw new UnauthorizedException('Invalid credentials');
     }
+
     const isMatch = await comparePassword(
       password,
       account.passwordHash,
@@ -60,27 +68,24 @@ export class AuthService {
     if (!isMatch) {
       throw new UnauthorizedException('Invalid credentials');
     }
-    console.log(isMatch);
-    
+
     const accessToken = await this.JwtService.signAsync({
-        sub: user.id,
+      sub: user.id,
       email: user.email,
       role: user.role,
-    })
+    });
 
     const refreshToken = generateTokenString();
-    const refreshTokenHash = hashToken(refreshToken).toString();
+    const refreshTokenHash = await hashToken(refreshToken);
+
     await this.sessionRepository.create({
       userId: user.id,
       accountId: account.id,
       ipAddress,
       userAgent,
-      refreshTokenHash: refreshTokenHash,
-      expiresAt: new Date(
-        Date.now() + 7 * 24 * 60 * 60 * 1000,
-      ), // 7 days
+      refreshTokenHash,
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     });
-
 
     return {
       user: {
@@ -93,5 +98,158 @@ export class AuthService {
       accessToken,
       refreshToken,
     };
+  }
+
+  async refresh(dto: RefreshDto) {
+    const refreshTokenHash = await hashToken(dto.refreshToken);
+    const session = await this.sessionRepository.findByRefreshTokenHash(
+      refreshTokenHash,
+    );
+
+    if (!session) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    if (session.revokedAt) {
+      throw new UnauthorizedException('Refresh token revoked');
+    }
+
+    if (session.expiresAt < new Date()) {
+      throw new UnauthorizedException('Refresh token expired');
+    }
+
+    const user = await this.userRepository.findById(session.userId);
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    if (user.status !== 'ACTIVE') {
+      throw new UnauthorizedException('User account is not active');
+    }
+
+    const accessToken = await this.JwtService.signAsync({
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    });
+
+    return { accessToken };
+  }
+
+  async logout(dto: LogoutDto) {
+    const refreshTokenHash = await hashToken(dto.refreshToken);
+    const session = await this.sessionRepository.findByRefreshTokenHash(
+      refreshTokenHash,
+    );
+
+    if (!session) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    await this.sessionRepository.revokeSession(session.id);
+    return { message: 'Logged out successfully' };
+  }
+
+  async logoutAll(userId: string) {
+    await this.sessionRepository.revokeAllSessions(userId);
+    return { message: 'Logged out from all devices' };
+  }
+
+  async verifyEmail(dto: VerifyEmailDto) {
+    const tokenHash = await hashToken(dto.token);
+    const verificationToken = await this.verificationRepository.findByTokenHash(
+      tokenHash,
+    );
+
+    if (!verificationToken) {
+      throw new UnauthorizedException('Invalid verification token');
+    }
+
+    if (verificationToken.usedAt) {
+      throw new UnauthorizedException('Token already used');
+    }
+
+    if (verificationToken.expiresAt < new Date()) {
+      throw new UnauthorizedException('Token expired');
+    }
+
+    await this.userRepository.update(verificationToken.userId, {
+      isVerified: true,
+    });
+
+    await this.verificationRepository.markUsed(tokenHash);
+    return { message: 'Email verified successfully' };
+  }
+
+  async forgotPassword(dto: ForgotPasswordDto) {
+    const user = await this.userRepository.findbyEmail(dto.email);
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    const resetToken = generateTokenString();
+    const tokenHash = await hashToken(resetToken);
+
+    await this.passwordResetRepository.create({
+      userId: user.id,
+      tokenHash,
+      expiresAt: new Date(Date.now() + 1 * 60 * 60 * 1000), // 1 hour
+    });
+
+    return {
+      message: 'Password reset token sent to email',
+      resetToken,
+    };
+  }
+
+  async resetPassword(dto: ResetPasswordDto) {
+    const tokenHash = await hashToken(dto.token);
+    const resetToken = await this.passwordResetRepository.findByTokenHash(
+      tokenHash,
+    );
+
+    if (!resetToken) {
+      throw new UnauthorizedException('Invalid reset token');
+    }
+
+    if (resetToken.usedAt) {
+      throw new UnauthorizedException('Token already used');
+    }
+
+    if (resetToken.expiresAt < new Date()) {
+      throw new UnauthorizedException('Token expired');
+    }
+
+    const user = await this.userRepository.findById(resetToken.userId);
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    const account = await this.authRepository.findLocalAccount(user.id);
+    if (!account) {
+      throw new UnauthorizedException('Account not found');
+    }
+
+    const hashedPassword = await comparePassword(
+      dto.newPassword,
+      account.passwordHash,
+    );
+
+    if (hashedPassword) {
+      throw new ConflictException(
+        'New password cannot be the same as old password',
+      );
+    }
+
+    const { createHashPassword } = await import(
+      '../../utils/password.util.js'
+    );
+    const newPasswordHash = await createHashPassword(dto.newPassword);
+
+    await this.authRepository.updatePasswordHash(account.id, newPasswordHash);
+    await this.passwordResetRepository.markUsed(tokenHash);
+    await this.sessionRepository.revokeAllSessions(user.id);
+
+    return { message: 'Password reset successfully' };
   }
 }
