@@ -11,6 +11,9 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtStrategy } from './strategies/jwt.strategy.js';
 import { JwtAuthGuard } from './guards/jwt-auth.gaurd.js';
 import { JWT_EXPIRY } from './constants/auth.constants.js';
+import { PassportModule } from '@nestjs/passport';
+import { GoogleStrategy } from './strategies/google.strategy.js';
+
 @Module({
     imports : [
         JwtModule.registerAsync({
@@ -40,6 +43,7 @@ import { JWT_EXPIRY } from './constants/auth.constants.js';
         PasswordResetRepository,
         JwtStrategy,
         JwtAuthGuard,
+        GoogleStrategy,
     ],
 })
 export class AuthModule {}
