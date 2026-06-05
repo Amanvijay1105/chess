@@ -31,4 +31,16 @@ export class SessionRepository {
       data: { revokedAt: new Date() },
     });
   }
+
+  async countActiveSessions(userId: string): Promise<number> {
+    return await this.prisma.session.count({
+      where: {
+        userId,
+        revokedAt: null,
+        expiresAt: {
+          gt: new Date(),
+        },
+      },
+    });
+  }
 }

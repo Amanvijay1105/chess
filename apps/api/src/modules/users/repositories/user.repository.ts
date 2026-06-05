@@ -24,6 +24,52 @@ export class userRepository {
     });
   }
 
+  async findPublicProfileByUsername(username: string): Promise<any> {
+    return await this.prisma.user.findUnique({
+      where: { username },
+      select: {
+        username: true,
+        displayName: true,
+        avatarUrl: true,
+        bio: true,
+        countryCode: true,
+        player: {
+          select: {
+            title: true,
+            ratings: true,
+          },
+        },
+      },
+    });
+  }
+
+  async findProfileById(id: string): Promise<any> {
+    return await this.prisma.user.findUnique({
+      where: { id },
+      include: {
+        player: {
+          include: {
+            ratings: true,
+          },
+        },
+      },
+    });
+  }
+
+  async updateProfile(id: string, user: Prisma.UserUpdateInput): Promise<User> {
+    return this.prisma.user.update({
+      where: { id },
+      data: user,
+      include: {
+        player: {
+          include: {
+            ratings: true,
+          },
+        },
+      },
+    });
+  }
+
   async create(user: Prisma.UserCreateInput): Promise<User> {
     return this.prisma.user.create({
       data: user,

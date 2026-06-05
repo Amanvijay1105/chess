@@ -1,9 +1,11 @@
 import {
   ConflictException,
   Injectable,
+  NotFoundException,
 } from '@nestjs/common';
 
 import { RegisterDto } from './dto/register.dto.js';
+import { UpdateProfileDto } from './dto/update-profile.dto.js';
 
 import { userRepository } from './repositories/user.repository.js';
 import { AuthRepository } from './repositories/auth.repository.js';
@@ -14,7 +16,8 @@ import { PlayerRespository } from '../players/respositories/players.respository.
 import { createHashPassword } from '../../utils/password.util.js';
 import { PrismaService } from '../../database/prisma/prisma.service.js';
 import { EMAIL_VERIFICATION_TOKEN_EXPIRY_MS } from '../auth/constants/auth.constants.js';
-
+import { SessionRepository } from '../auth/repositories/session.repository.js';
+import type { User } from '../../../generated/prisma/client.ts';
 import crypto from 'crypto';
 
 @Injectable()
@@ -25,6 +28,7 @@ export class UserService {
     private readonly authRepository: AuthRepository,
     private readonly verificationTokenRepository: verificationTokenRespository,
     private readonly playerRepository: PlayerRespository,
+    private readonly sessionRepository: SessionRepository,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -90,4 +94,78 @@ export class UserService {
       message: 'User registered successfully',
     };
   }
+
+  async getPublicProfile(username: string) {
+    const user = await this.userRepository.findPublicProfileByUsername(
+      username,
+    );
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    return {
+      username: user.username,
+      displayName: user.displayName,
+      avatarUrl: user.avatarUrl,
+      bio: user.bio,
+      countryCode: user.countryCode,
+      title: user.player?.title ?? 'NONE',
+      ratings: user.player?.ratings ?? [],
+    };
+  }
+
+  async getCurrentProfile(userId: string) {
+    const user = await this.userRepository.findProfileById(userId);
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const activeSessionsCount = await this.sessionRepository.countActiveSessions(
+      userId,
+    );
+
+    return {
+      id: user.id,
+      username: user.username,
+      displayName: user.displayName,
+      email: user.email,
+      avatarUrl: user.avatarUrl,
+      bio: user.bio,
+      countryCode: user.countryCode,
+      role: user.role,
+      status: user.status,
+      isVerified: user.isVerified,
+      title: user.player?.title ?? 'NONE',
+      ratings: user.player?.ratings ?? [],
+      activeSessionsCount,
+    };
+  }
+
+  async updateProfile(userId: string, dto: UpdateProfileDto) {
+    const { displayName, bio, avatarUrl, countryCode } = dto;
+    const updated = await this.userRepository.updateProfile(userId, {
+      displayName,
+      bio,
+      avatarUrl,
+      countryCode,
+    });
+
+    return {
+      id: updated.id,
+      username: updated.username,
+      displayName: updated.displayName,
+      email: updated.email,
+      avatarUrl: updated.avatarUrl,
+      bio: updated.bio,
+      countryCode: updated.countryCode,
+      role: updated.role,
+      status: updated.status,
+      isVerified: updated.isVerified,
+      title: updated.player?.title ?? 'NONE',
+      ratings: updated.player?.ratings ?? [],
+    };
+  }
 }
+

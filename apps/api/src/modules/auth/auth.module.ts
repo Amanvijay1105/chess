@@ -46,5 +46,6 @@ import { GoogleStrategy } from './strategies/google.strategy.js';
         JwtAuthGuard,
         GoogleStrategy,
     ],
+    exports: [PassportModule, JwtAuthGuard],
 })
 export class AuthModule {}
