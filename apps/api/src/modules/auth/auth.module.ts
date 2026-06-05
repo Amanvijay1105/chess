@@ -16,6 +16,7 @@ import { GoogleStrategy } from './strategies/google.strategy.js';
 
 @Module({
     imports : [
+        PassportModule.register({ defaultStrategy: 'jwt' }),
         JwtModule.registerAsync({
           imports: [ConfigModule],
           inject: [ConfigService],

@@ -38,6 +38,7 @@ export class AuthService {
     private readonly authRepository: AuthRepository,
     private readonly verificationRepository: VerificationRepository,
     private readonly passwordResetRepository: PasswordResetRepository,
+    private readonly playerRepository: any,
     private readonly JwtService: JwtService,
   ) {}
 

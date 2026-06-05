@@ -28,7 +28,7 @@ export class AuthRepository {
     });
   }
 
-  async findByProvider(userId: string, provider: string): Promise<Account | null> {
+  async findByProvider(userId: string, provider: any): Promise<Account | null> {
     return await this.prisma.account.findFirst({
       where: { userId, provider },
     });
