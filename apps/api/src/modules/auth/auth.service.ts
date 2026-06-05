@@ -258,4 +258,91 @@ export class AuthService {
 
     return { message: 'Password reset successfully' };
   }
+
+  async oauthLogin(profile: any) {
+    const ipAddress = this.request.ip;
+    const userAgent = this.request.headers['user-agent'] ?? '';
+
+    const email = profile?.emails?.[0]?.value;
+    if (!email) {
+      throw new UnauthorizedException('Email not provided by OAuth provider');
+    }
+
+    let user = await this.userRepository.findbyEmail(email);
+    let account = null as any;
+
+    if (!user) {
+      const base = String(email).split('@')[0].replace(/[^a-z0-9]/gi, '').toLowerCase().slice(0, 16) || 'user';
+      let username = base;
+      let i = 0;
+      while (await this.userRepository.findByUsername(username)) {
+        i += 1;
+        username = `${base}${i}`;
+      }
+
+      user = await this.userRepository.create({
+        username,
+        email,
+        displayName: profile.displayName ?? username,
+        isVerified: true,
+      } as any);
+
+      account = await this.authRepository.create({
+        userId: user.id,
+        provider: 'GOOGLE',
+        providerAccountId: profile.id,
+        providerEmail: email,
+      } as any);
+
+      await this.playerRepository.create({
+        userId: user.id,
+        title: 'NONE',
+        fairPlayScore: 100,
+      } as any);
+    } else {
+      account = this.authRepository.findByProvider
+        ? await this.authRepository.findByProvider(user.id, 'GOOGLE')
+        : null;
+
+      if (!account) {
+        account = await this.authRepository.create({
+          userId: user.id,
+          provider: 'GOOGLE',
+          providerAccountId: profile.id,
+          providerEmail: email,
+        } as any);
+      }
+    }
+
+    const payload: JwtPayload = {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    };
+
+    const accessToken = await this.JwtService.signAsync(payload);
+    const refreshToken = generateTokenString();
+    const refreshTokenHash = await hashToken(refreshToken);
+
+    await this.sessionRepository.create({
+      userId: user.id,
+      accountId: account.id,
+      ipAddress,
+      userAgent,
+      refreshTokenHash,
+      expiresAt: new Date(Date.now() + REFRESH_EXPIRY_MS),
+    } as any);
+
+    return {
+      user: {
+        id: user.id,
+        name: user.name ?? user.displayName,
+        email: user.email,
+        role: user.role,
+        status: user.status,
+      },
+      accessToken,
+      refreshToken,
+    };
+  }
 }
