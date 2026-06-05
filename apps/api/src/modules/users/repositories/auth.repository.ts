@@ -1,11 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma/prisma.service.js';
+import type { Account, Prisma } from '../../../generated/prisma/client.js';
 
 @Injectable()
 export class AuthRepository {
   constructor(private prisma: PrismaService) {}
 
-  async findLocalAccount(userId: string): Promise<any | null> {
+  async findLocalAccount(userId: string): Promise<Account | null> {
     return await this.prisma.account.findFirst({
       where: {
         userId,
@@ -14,13 +15,13 @@ export class AuthRepository {
     });
   }
 
-  async create(account: any) {
+  async create(account: Prisma.AccountCreateInput): Promise<Account> {
     return await this.prisma.account.create({
       data: account,
     });
   }
 
-  async updatePasswordHash(accountId: string, passwordHash: string) {
+  async updatePasswordHash(accountId: string, passwordHash: string): Promise<Account> {
     return await this.prisma.account.update({
       where: { id: accountId },
       data: { passwordHash },

@@ -1,11 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma/prisma.service.js';
+import type { Prisma, Session } from '../../../generated/prisma/client.js';
 
 @Injectable()
 export class SessionRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(session: any) {
+  async create(session: Prisma.SessionCreateInput): Promise<Session> {
     return await this.prisma.session.create({
       data: session,
     });

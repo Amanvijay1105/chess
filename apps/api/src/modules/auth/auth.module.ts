@@ -10,6 +10,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtStrategy } from './strategies/jwt.strategy.js';
 import { JwtAuthGuard } from './guards/jwt-auth.gaurd.js';
+import { JWT_EXPIRY } from './constants/auth.constants.js';
 @Module({
     imports : [
         JwtModule.registerAsync({
@@ -23,7 +24,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.gaurd.js';
             return {
               secret,
               signOptions: {
-                expiresIn: '15m',
+                expiresIn: JWT_EXPIRY,
               },
             };
           },

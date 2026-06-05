@@ -19,6 +19,8 @@ import { AuthRepository } from '../users/repositories/auth.repository.js';
 import { SessionRepository } from './repositories/session.repository.js';
 import { VerificationRepository } from './repositories/verification.repository.js';
 import { PasswordResetRepository } from './repositories/password-reset.repository.js';
+import { JwtPayload } from './types/jwt-payload.js';
+import { REFRESH_EXPIRY_MS } from './constants/auth.constants.js';
 
 import { comparePassword } from '../../utils/password.util.js';
 import { generateTokenString, hashToken } from '../../utils/refreshToken.js';
@@ -69,11 +71,13 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const accessToken = await this.JwtService.signAsync({
+    const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
       role: user.role,
-    });
+    };
+
+    const accessToken = await this.JwtService.signAsync(payload);
 
     const refreshToken = generateTokenString();
     const refreshTokenHash = await hashToken(refreshToken);
@@ -84,7 +88,7 @@ export class AuthService {
       ipAddress,
       userAgent,
       refreshTokenHash,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      expiresAt: new Date(Date.now() + REFRESH_EXPIRY_MS),
     });
 
     return {
@@ -127,11 +131,13 @@ export class AuthService {
       throw new UnauthorizedException('User account is not active');
     }
 
-    const accessToken = await this.JwtService.signAsync({
+    const payload: JwtPayload = {
       sub: user.id,
       email: user.email,
       role: user.role,
-    });
+    };
+
+    const accessToken = await this.JwtService.signAsync(payload);
 
     return { accessToken };
   }

@@ -7,6 +7,8 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto.js';
 import { ResetPasswordDto } from './dto/reset-password.dto.js';
 import { AuthService } from './auth.service.js';
 import { JwtAuthGuard } from './guards/jwt-auth.gaurd.js';
+import type { AuthRequest } from './types/auth-request.js';
+import { AuthGuard } from '@nestjs/passport';
 
 @Controller('/api/auth')
 export class AuthController {
@@ -29,8 +31,8 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Post('logout-all')
-  async logoutAll(@Req() req: any) {
-    return this.AuthService.logoutAll(req.user.sub);
+  async logoutAll(@Req() req: AuthRequest) {
+    return this.AuthService.logoutAll(req.user.id);
   }
 
   @Post('verify-email')
@@ -50,7 +52,20 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Get('me')
-  getMe(@Req() req: any) {
+  getMe(@Req() req: AuthRequest) {
     return req.user;
+  }
+
+  @Get('google')
+  @UseGuards(AuthGuard('google'))
+  googleAuth() {
+    // Guard redirects to Google
+  }
+
+  @Get('google/callback')
+  @UseGuards(AuthGuard('google'))
+  async googleAuthCallback(@Req() req: any) {
+    // req.user populated by Google strategy
+    return this.AuthService.oauthLogin(req.user);
   }
 }

@@ -1,11 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma/prisma.service.js';
+import type { Prisma, VerificationToken } from '../../../generated/prisma/client.js';
 
 @Injectable()
 export class VerificationRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(data: any) {
+  async create(data: Prisma.VerificationTokenCreateInput): Promise<VerificationToken> {
     return await this.prisma.verificationToken.create({
       data,
     });
